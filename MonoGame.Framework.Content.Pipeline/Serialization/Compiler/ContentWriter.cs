@@ -239,6 +239,9 @@ namespace Microsoft.Xna.Framework.Content.Pipeline.Serialization.Compiler
 			    typeWriterMap.Add(typeWriter.GetType(), index);
                 typeMap.Add(type, typeWriter);
 
+                if (type.BaseType != null && type.BaseType != typeof (object))
+                    GetTypeWriter(type.BaseType);
+
                 // TODO: This is kinda messy.. seems like there could
                 // be a better way for generics and arrays to register
                 // their inner types with the typeWriterMap.
