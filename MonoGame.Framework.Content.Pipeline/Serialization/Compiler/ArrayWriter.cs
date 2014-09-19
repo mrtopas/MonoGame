@@ -44,8 +44,8 @@ namespace Microsoft.Xna.Framework.Content.Pipeline.Serialization.Compiler
             if (value == null)
                 throw new ArgumentNullException("value");
             output.Write(value.Length);
-            foreach (var element in value)
-                output.WriteObject(element, elementWriter);
+            foreach (var element in value)            
+                output.WriteObject(element, output.GetTypeWriter(element.GetType()));            
         }
     }
 }

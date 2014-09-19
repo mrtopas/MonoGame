@@ -40,8 +40,8 @@ namespace Microsoft.Xna.Framework.Content.Pipeline.Serialization.Compiler
             output.Write(value.Count);
             foreach (var element in value)
             {
-                output.WriteObject(element.Key, keyWriter);
-                output.WriteObject(element.Value, valueWriter);
+                output.WriteObject(element.Key, output.GetTypeWriter(element.Key.GetType()));
+                output.WriteObject(element.Value, output.GetTypeWriter(element.Value.GetType()));
             }
         }
     }

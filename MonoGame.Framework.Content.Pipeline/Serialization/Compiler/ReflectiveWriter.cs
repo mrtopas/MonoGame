@@ -106,13 +106,13 @@ namespace Microsoft.Xna.Framework.Content.Pipeline.Serialization.Compiler
 
             if (property != null)
             {
-                elementType = property.PropertyType;
+                elementType = property.GetValue(parent, null).GetType();
                 writer = output.GetTypeWriter(elementType);
                 memberObject = property.GetValue(parent, null);
             }
             else
             {
-                elementType = field.FieldType;
+                elementType = field.GetValue(parent).GetType();
                 writer = output.GetTypeWriter(elementType);
                 memberObject = field.GetValue(parent);
             }

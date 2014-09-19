@@ -259,6 +259,7 @@
     <Compile Include="Content\ContentReaders\QuaternionReader.cs" />
     <Compile Include="Content\ContentReaders\RayReader.cs" />
     <Compile Include="Content\ContentReaders\RectangleReader.cs" />
+	<Compile Include="Content\ContentReaders\ReflectiveInterfaceReader.cs" />
     <Compile Include="Content\ContentReaders\ReflectiveReader.cs" />
     <Compile Include="Content\ContentReaders\SByteReader.cs" />
     <Compile Include="Content\ContentReaders\SingleReader.cs" />

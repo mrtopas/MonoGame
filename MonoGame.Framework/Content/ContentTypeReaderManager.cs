@@ -42,7 +42,8 @@ namespace Microsoft.Xna.Framework.Content
         private Dictionary<Type, ContentTypeReader> _contentReaders;
 
 		private static readonly string _assemblyName;
-		
+
+        private Dictionary<Type, ContentTypeReader> _interfaceReaders;
 
 		static ContentTypeReaderManager()
 		{
@@ -59,6 +60,16 @@ namespace Microsoft.Xna.Framework.Content
         public ContentTypeReader GetTypeReader(Type targetType)
         {
             ContentTypeReader reader;
+            if (targetType.IsInterface)
+            {
+                if (_interfaceReaders.TryGetValue(targetType, out reader))
+                    return reader;
+
+                reader = new ReflectiveInterfaceReader(targetType);
+                _interfaceReaders.Add(targetType, reader);
+                return reader;
+            }
+
             if (_contentReaders.TryGetValue(targetType, out reader))
                 return reader;
 
@@ -129,7 +140,7 @@ namespace Microsoft.Xna.Framework.Content
             var contentReaders = new ContentTypeReader[numberOfReaders];
             var needsInitialize = new BitArray(numberOfReaders);
             _contentReaders = new Dictionary<Type, ContentTypeReader>(numberOfReaders);
-
+            _interfaceReaders = new Dictionary<Type, ContentTypeReader>(numberOfReaders);
             // Lock until we're done allocating and initializing any new
             // content type readers...  this ensures we can load content
             // from multiple threads and still cache the readers.

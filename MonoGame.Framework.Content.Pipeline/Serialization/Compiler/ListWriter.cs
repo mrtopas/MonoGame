@@ -37,9 +37,7 @@ namespace Microsoft.Xna.Framework.Content.Pipeline.Serialization.Compiler
                 throw new ArgumentNullException("value");
             output.Write(value.Count);
             foreach (var element in value)
-            {
-                output.WriteObject(element, elementWriter);
-            }
+                output.WriteObject(element, output.GetTypeWriter(element.GetType()));
         }
     }
 }
