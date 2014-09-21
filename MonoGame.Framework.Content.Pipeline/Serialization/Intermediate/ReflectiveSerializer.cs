@@ -60,13 +60,13 @@ namespace Microsoft.Xna.Framework.Content.Pipeline.Serialization.Intermediate
 
                     // If there is no public setter and the property is a system
                     // type then we have no way for it to be deserialized.
-                    if (prop.GetSetMethod() == null &&
-                        prop.PropertyType.Namespace == "System")
+                    if (prop.GetSetMethod() == null /*&&
+                        prop.PropertyType.Namespace == "System"*/)
                         return false;
                 }
                 else if (field != null)
                 {
-                    if (!field.IsPublic)
+                    if (!field.IsPublic || field.IsInitOnly)
                         return false;
                 }
 
