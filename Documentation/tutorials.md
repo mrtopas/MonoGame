@@ -43,7 +43,9 @@ Tara Walker's "Building a Shooter Game" tutorial series.
  - [Building Games for Windows 8 with MonoGame](http://tjclifton.com/2013/06/16/building-games-for-windows-8-with-monogame-part-1/)
  - [Dark Genesis Blog](http://darkgenesis.zenithmoon.com/tag/monogame/)
  - [MonoGame "Hello World" on Mac OS X and Xamarin Studio](http://jaquadro.com/2013/09/monogame-hello-world-on-mac-os-x-and-xamarin-studio/)
-
+ - [Solving Resolution Independent Rendering And 2D Camera Using Monogame](http://blog.roboblob.com/2013/07/27/solving-resolution-independent-rendering-and-2d-camera-using-monogame/)
+ - [XNA is Dead; Long Live the New XNA, MonoGame](http://www.codemag.com/Article/1411081)
+ 
 ## Video Tutorials
 
  - [CodingMadeEasy RPG Tutorial](http://www.youtube.com/watch?feature=player_embedded&v=agt9-J9RPZ0)
