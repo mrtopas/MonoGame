@@ -172,8 +172,9 @@ namespace Microsoft.Xna.Framework.Content.Pipeline.Audio
                         break;
                     case ConversionFormat.Aac:
                         // AAC (Advanced Audio Coding)
+                        // Requires -strict experimental
                         ffmpegCodecName = "aac";
-                        ffmpegMuxerName = "aac";
+                        ffmpegMuxerName = "ipod";
                         format = 0x0000; /* WAVE_FORMAT_UNKNOWN */
                         break;
                     case ConversionFormat.Vorbis:
@@ -191,7 +192,7 @@ namespace Microsoft.Xna.Framework.Content.Pipeline.Audio
                 var ffmpegExitCode = ExternalTool.Run(
                     "ffmpeg",
                     string.Format(
-                        "-y -i \"{0}\" -c:a {1} -b:a {2} -f:a {3} \"{4}\"",
+                        "-y -i \"{0}\" -vn -c:a {1} -b:a {2} -f:a {3} -strict experimental \"{4}\"",
                         temporarySource,
                         ffmpegCodecName,
                         QualityToBitRate(quality),
@@ -280,6 +281,13 @@ namespace Microsoft.Xna.Framework.Content.Pipeline.Audio
                     channelCount,
                     format,
                     sampleRate);
+
+                // Loop start and length in number of samples. Defaults to entire sound
+                loopStart = 0;
+                if (data != null && bitsPerSample > 0 && channelCount > 0)
+                    loopLength = data.Count / ((bitsPerSample / 8) * channelCount);
+                else
+                    loopLength = 0;
             }
             finally
             {

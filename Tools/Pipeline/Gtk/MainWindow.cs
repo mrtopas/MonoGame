@@ -3,550 +3,699 @@ using System.Diagnostics;
 using System;
 using Gtk;
 using System.Reflection;
+
 #if MONOMAC
 using IgeMacIntegration;
 #endif
 
 namespace MonoGame.Tools.Pipeline
 {
-	partial class MainWindow : Gtk.Window, IView
-	{
-		public static string AllowedCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 _.";
+    partial class MainWindow : Window, IView
+    {
+        public static string AllowedCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 _.";
 
-		public static bool CheckString(string s, string allowedCharacters)
-		{
-			for (int i = 0; i < s.Length; i++) 
-				if (!allowedCharacters.Contains (s.Substring (i, 1)))
-					return false;
+        public static bool CheckString(string s, string allowedCharacters)
+        {
+            for (int i = 0; i < s.Length; i++) 
+                if (!allowedCharacters.Contains (s.Substring (i, 1)))
+                    return false;
 
-			return true;
-		}
+            return true;
+        }
 
-		public string OpenProjectPath;
-		public IController _controller;
+        public string OpenProjectPath;
+        public IController _controller;
 
-		FileFilter MonoGameContentProjectFileFilter;
-		FileFilter XnaContentProjectFileFilter;
-		FileFilter AllFilesFilter;
+        FileFilter MonoGameContentProjectFileFilter;
+        FileFilter XnaContentProjectFileFilter;
+        FileFilter AllFilesFilter;
 
-		MenuItem treerebuild;
-		MenuItem recentMenu;
+        MenuItem treerebuild;
+        MenuItem recentMenu;
+        bool expand = false;
 
-		public MainWindow () :
-			base (Gtk.WindowType.Toplevel)
-		{
-			this.Build ();
+        public MainWindow () :
+            base (WindowType.Toplevel)
+        {
+            Build();
 
-			MonoGameContentProjectFileFilter = new FileFilter ();
-			MonoGameContentProjectFileFilter.Name = "MonoGame Content Build Projects (*.mgcb)";
-			MonoGameContentProjectFileFilter.AddPattern ("*.mgcb");
+            MonoGameContentProjectFileFilter = new FileFilter ();
+            MonoGameContentProjectFileFilter.Name = "MonoGame Content Build Projects (*.mgcb)";
+            MonoGameContentProjectFileFilter.AddPattern ("*.mgcb");
 
-			XnaContentProjectFileFilter = new FileFilter ();
-			XnaContentProjectFileFilter.Name = "XNA Content Projects (*.contentproj)";
-			XnaContentProjectFileFilter.AddPattern ("*.contentproj");
+            XnaContentProjectFileFilter = new FileFilter ();
+            XnaContentProjectFileFilter.Name = "XNA Content Projects (*.contentproj)";
+            XnaContentProjectFileFilter.AddPattern ("*.contentproj");
 
-			AllFilesFilter = new FileFilter ();
-			AllFilesFilter.Name = "All Files (*.*)";
-			AllFilesFilter.AddPattern ("*.*");
+            AllFilesFilter = new FileFilter ();
+            AllFilesFilter.Name = "All Files (*.*)";
+            AllFilesFilter.AddPattern ("*.*");
 
-			Widget[] widgets = menubar1.Children;
-			foreach (Widget w in widgets) {
-				if(((MenuItem)w).Name == "FileAction")
-				{
-					Menu m = (Menu)((MenuItem)w).Submenu;
-					foreach (Widget w2 in m.Children) 
-						if (((MenuItem)w2).Name == "OpenRecentAction") 
-							recentMenu = (MenuItem)w2;
-				}
-			}
+            Widget[] widgets = menubar1.Children;
+            foreach (Widget w in widgets) {
+                if(w.Name == "FileAction")
+                {
+                    var m = (Menu)((MenuItem)w).Submenu;
+                    foreach (Widget w2 in m.Children) 
+                        if (w2.Name == "OpenRecentAction") 
+                            recentMenu = (MenuItem)w2;
+                }
+            }
 
-			treerebuild = new MenuItem ("Rebuild");
-			treerebuild.Activated += delegate {
-				projectview1.Rebuild ();
-			};
-			projectview1.Initalize (this, treerebuild, propertiesview1);
+            treerebuild = new MenuItem ("Rebuild");
+            treerebuild.Activated += delegate {
+                projectview1.Rebuild ();
+            };
 
-			if (Assembly.GetEntryAssembly ().FullName.Contains ("Pipeline"))
-				BuildMenu ();
-			else {
-				menubar1.Hide ();
-				vbox2.Remove (menubar1);
-			}
+            //This is always returning false, and solves a bug
+            if (projectview1 == null || propertiesview1 == null)
+                return;
 
-			propertiesview1.Initalize (this);
-		}
-			
-		void BuildMenu() {
+            projectview1.Initalize (this, treerebuild, propertiesview1);
+
+            if (Assembly.GetEntryAssembly ().FullName.Contains ("Pipeline"))
+                BuildMenu ();
+            else {
+                menubar1.Hide ();
+                vbox2.Remove (menubar1);
+            }
+
+            propertiesview1.Initalize (this);
+            this.textview2.SizeAllocated += AutoScroll;
+        }
+            
+        void BuildMenu() {
 
 #if MONOMAC
-			if (Environment.OSVersion.Platform == PlatformID.Unix) {
-				IgeMacMenu.GlobalKeyHandlerEnabled = true;
+            if (Environment.OSVersion.Platform == PlatformID.Unix) {
+                IgeMacMenu.GlobalKeyHandlerEnabled = true;
 
-				//Tell the IGE library to use your GTK menu as the Mac main menu
-				IgeMacMenu.MenuBar = this.menubar1;
+                //Tell the IGE library to use your GTK menu as the Mac main menu
+                IgeMacMenu.MenuBar = this.menubar1;
 
-				//tell IGE which menu item should be used for the app menu's quit item
-				//IgeMacMenu.QuitMenuItem = yourQuitMenuItem;
+                //tell IGE which menu item should be used for the app menu's quit item
+                //IgeMacMenu.QuitMenuItem = yourQuitMenuItem;
 
-				//add a new group to the app menu, and add some items to it
-				var appGroup = IgeMacMenu.AddAppMenuGroup ();
-				appGroup.AddMenuItem (new MenuItem(), "About Pipeline...");
+                //add a new group to the app menu, and add some items to it
+                var appGroup = IgeMacMenu.AddAppMenuGroup ();
+                appGroup.AddMenuItem (new MenuItem(), "About Pipeline...");
 
-				//hide the menu bar so it no longer displays within the window
-				menubar1.Hide ();
-				vbox2.Remove (menubar1);
+                //hide the menu bar so it no longer displays within the window
+                menubar1.Hide ();
+                vbox2.Remove (menubar1);
 
-			}
+            }
 #endif
-		}
+        }
 
-		public void OnShowEvent()
-		{
-			if (string.IsNullOrEmpty(OpenProjectPath))
-			{
-				var startupProject = History.Default.StartupProject;
-				if (!string.IsNullOrEmpty(startupProject) && System.IO.File.Exists(startupProject))                
-					OpenProjectPath = startupProject;                
-			}
+        public void OnShowEvent()
+        {
+            if (string.IsNullOrEmpty(OpenProjectPath))
+            {
+                var startupProject = History.Default.StartupProject;
+                if (!string.IsNullOrEmpty(startupProject) && System.IO.File.Exists(startupProject))                
+                    OpenProjectPath = startupProject;                
+            }
 
-			History.Default.StartupProject = null;
+            History.Default.StartupProject = null;
 
-			if (!String.IsNullOrEmpty(OpenProjectPath)) {
-				_controller.OpenProject(OpenProjectPath);
-				OpenProjectPath = null;
-			}
-		}
+            if (!String.IsNullOrEmpty(OpenProjectPath)) {
+                _controller.OpenProject(OpenProjectPath);
+                OpenProjectPath = null;
+            }
+        }
 
-		protected void OnDeleteEvent (object sender, DeleteEventArgs a)
-		{
-			if (_controller.Exit ()) 
-				Application.Quit ();
-			else
-				a.RetVal = true;
-		}
+        protected void OnDeleteEvent (object sender, DeleteEventArgs a)
+        {
+            if (_controller.Exit ()) 
+                Application.Quit ();
+            else
+                a.RetVal = true;
+        }
 
-		#region IView implements
+#region IView implements
 
-		public void Attach (IController controller)
-		{
-			_controller = controller;
-			propertiesview1.controller = _controller;
+        public void Attach (IController controller)
+        {
+            _controller = controller;
+            propertiesview1.controller = _controller;
 
-			_controller.OnBuildStarted += UpdateMenus;
-			_controller.OnBuildFinished += UpdateMenus;
-			_controller.OnProjectLoading += UpdateMenus;
-			_controller.OnProjectLoaded += UpdateMenus;
+            _controller.OnBuildStarted += UpdateMenus;
+            _controller.OnBuildFinished += UpdateMenus;
+            _controller.OnProjectLoading += UpdateMenus;
+            _controller.OnProjectLoaded += UpdateMenus;
 
-			_controller.OnCanUndoRedoChanged += UpdateUndoRedo;
-			UpdateMenus ();
-		}
+            _controller.OnCanUndoRedoChanged += UpdateUndoRedo;
+            UpdateMenus ();
+        }
 
-		public AskResult AskSaveOrCancel ()
-		{
-			Pipeline.YesNoCancelDialog dialog = new Pipeline.YesNoCancelDialog ("Question", "Do you want to save the project first?");
-			dialog.TransientFor = this;
-			var result = dialog.Run ();
-			dialog.Destroy ();
+        public AskResult AskSaveOrCancel ()
+        {
+            var dialog = new YesNoCancelDialog ("Question", "Do you want to save the project first?");
+            dialog.TransientFor = this;
+            var result = dialog.Run ();
+            dialog.Destroy ();
 
-			if (result == (int)ResponseType.Yes)
-				return AskResult.Yes;
+            if (result == (int)ResponseType.Yes)
+                return AskResult.Yes;
+            else if (result == (int)ResponseType.No)
+                return AskResult.No;
 
-			if (result == (int)ResponseType.No)
-				return AskResult.No;
+            return AskResult.Cancel;
+        }
 
-			return AskResult.Cancel;
-		}
+        public bool AskSaveName (ref string filePath, string title)
+        {
+            var filechooser =
+                new FileChooserDialog("Save MGCB Project As",
+                    this,
+                    FileChooserAction.Save,
+                    "Cancel", ResponseType.Cancel,
+                    "Save", ResponseType.Accept);
 
-		public bool AskSaveName (ref string filePath, string title)
-		{
-			Gtk.FileChooserDialog filechooser =
-				new Gtk.FileChooserDialog(title,
-					this,
-					FileChooserAction.Save,
-					"Cancel", ResponseType.Cancel,
-					"Save", ResponseType.Accept);
+            filechooser.AddFilter (MonoGameContentProjectFileFilter);
+            filechooser.AddFilter (AllFilesFilter);
 
-			filechooser.AddFilter (MonoGameContentProjectFileFilter);
-			filechooser.AddFilter (AllFilesFilter);
+            if (title != null)
+                filechooser.Title = title;
 
-			var result = (filechooser.Run() == (int)ResponseType.Accept) ? true : false;
-			filePath = filechooser.Filename;
+            var result = filechooser.Run() == (int)ResponseType.Accept;
+            filePath = filechooser.Filename;
 
-			filechooser.Destroy ();
-			return result;
-		}
+            if (filechooser.Filter == MonoGameContentProjectFileFilter && !filePath.EndsWith(".mgcb"))
+                filePath += ".mgcb";
 
-		public bool AskOpenProject (out string projectFilePath)
-		{
-			Gtk.FileChooserDialog filechooser =
-				new Gtk.FileChooserDialog("Open MGCB Project",
-					this,
-					FileChooserAction.Open,
-					"Cancel", ResponseType.Cancel,
-					"Open", ResponseType.Accept);
+            filechooser.Destroy ();
+            return result;
+        }
 
-			filechooser.AddFilter (MonoGameContentProjectFileFilter);
-			filechooser.AddFilter (AllFilesFilter);
+        public bool AskOpenProject (out string projectFilePath)
+        {
+            var filechooser =
+                new FileChooserDialog("Open MGCB Project",
+                    this,
+                    FileChooserAction.Open,
+                    "Cancel", ResponseType.Cancel,
+                    "Open", ResponseType.Accept);
 
-			var result = (filechooser.Run() == (int)ResponseType.Accept) ? true : false;
-			projectFilePath = filechooser.Filename;
-			filechooser.Destroy ();
+            filechooser.AddFilter (MonoGameContentProjectFileFilter);
+            filechooser.AddFilter (AllFilesFilter);
 
-			return result;
-		}
+            var result = filechooser.Run() == (int)ResponseType.Accept;
+            projectFilePath = filechooser.Filename;
+            filechooser.Destroy ();
 
-		public bool AskImportProject (out string projectFilePath)
-		{
-			Gtk.FileChooserDialog filechooser =
-				new Gtk.FileChooserDialog("Import XNA Content Project",
-					this,
-					FileChooserAction.Open,
-					"Cancel", ResponseType.Cancel,
-					"Open", ResponseType.Accept);
+            return result;
+        }
 
-			filechooser.AddFilter (XnaContentProjectFileFilter);
-			filechooser.AddFilter (AllFilesFilter);
+        public bool AskImportProject (out string projectFilePath)
+        {
+            var filechooser =
+                new FileChooserDialog("Import XNA Content Project",
+                    this,
+                    FileChooserAction.Open,
+                    "Cancel", ResponseType.Cancel,
+                    "Open", ResponseType.Accept);
 
-			var result = (filechooser.Run() == (int)ResponseType.Accept) ? true : false;
-			projectFilePath = filechooser.Filename;
-			filechooser.Destroy ();
+            filechooser.AddFilter (XnaContentProjectFileFilter);
+            filechooser.AddFilter (AllFilesFilter);
 
-			return result;
-		}
+            var result = filechooser.Run() == (int)ResponseType.Accept;
+            projectFilePath = filechooser.Filename;
+            filechooser.Destroy ();
 
-		public void ShowError (string title, string message)
-		{
-			MessageDialog dialog = new MessageDialog (this, DialogFlags.Modal, MessageType.Error, ButtonsType.Ok, message);
-			dialog.Title = title;
-			dialog.Run();
-			dialog.Destroy ();
-		}
+            return result;
+        }
 
-		public void ShowMessage (string message)
-		{
-			MessageDialog dialog = new MessageDialog (this, DialogFlags.Modal, MessageType.Warning, ButtonsType.Ok, message);
-			dialog.Title = "Info";
-			dialog.Run();
-			dialog.Destroy ();
-		}
+        public void ShowError (string title, string message)
+        {
+            var dialog = new MessageDialog (this, DialogFlags.Modal, MessageType.Error, ButtonsType.Ok, message);
+            dialog.Title = title;
+            dialog.Run();
+            dialog.Destroy ();
+        }
 
-		public void BeginTreeUpdate ()
-		{
+        public void ShowMessage (string message)
+        {
+            var dialog = new MessageDialog (this, DialogFlags.Modal, MessageType.Warning, ButtonsType.Ok, message);
+            dialog.Title = "Info";
+            dialog.Run();
+            dialog.Destroy ();
+        }
 
-		}
+        public void BeginTreeUpdate ()
+        {
 
-		public void SetTreeRoot (IProjectItem item)
-		{
-			if (item != null) {
-				projectview1.openedProject = item.OriginalPath;
-				projectview1.SetBaseIter (System.IO.Path.GetFileNameWithoutExtension (item.OriginalPath));
-			}
-			else {
-				projectview1.SetBaseIter ("");
-				projectview1.Close ();
-				UpdateMenus ();
-			}
-		}
+        }
 
-		public void AddTreeItem (IProjectItem item)
-		{
-			projectview1.AddItem (projectview1.GetBaseIter(), item.OriginalPath);
-		}
+        public void SetTreeRoot (IProjectItem item)
+        {
+            if (item != null) {
+                projectview1.openedProject = item.OriginalPath;
+                projectview1.SetBaseIter (System.IO.Path.GetFileNameWithoutExtension (item.OriginalPath));
+            }
+            else {
+                projectview1.SetBaseIter ("");
+                projectview1.Close ();
+                UpdateMenus ();
+            }
+        }
 
-		public void RemoveTreeItem (ContentItem contentItem)
-		{
-			projectview1.RemoveItem (projectview1.GetBaseIter (), contentItem.OriginalPath);
-		}
+        public void AddTreeItem (IProjectItem item)
+        {
+            projectview1.AddItem (projectview1.GetBaseIter(), item.OriginalPath, item.Exists, false,  expand);
+        }
 
-		public void UpdateTreeItem (IProjectItem item)
-		{
-			//throw new NotImplementedException();
-		}
+        public void AddTreeFolder (string folder)
+        {
+            projectview1.AddItem (projectview1.GetBaseIter(), folder, true, true,  expand);
+        }
 
-		public void EndTreeUpdate ()
-		{
+        public void RemoveTreeItem (ContentItem contentItem)
+        {
+            projectview1.RemoveItem (projectview1.GetBaseIter (), contentItem.OriginalPath);
+        }
 
-		}
+        public void RemoveTreeFolder (string folder)
+        {
+            projectview1.RemoveItem (projectview1.GetBaseIter (), folder);
+        }
 
-		public void UpdateProperties (IProjectItem item)
-		{
+        public void UpdateTreeItem (IProjectItem item)
+        {
 
-		}
+        }
 
-		public void OutputAppend (string text)
-		{
-			if (text == null)
-				return;
+        public void EndTreeUpdate ()
+        {
 
-			Gtk.Application.Invoke (delegate { 
-				textview2.Buffer.Text += text + "\r\n";
-			});
-		}
+        }
 
-		public void OutputClear ()
-		{
-			Gtk.Application.Invoke (delegate { 
-				textview2.Buffer.Text = "";
-			});
-		}
+        public void UpdateProperties (IProjectItem item)
+        {
+            UpdateMenus ();
+        }
 
-		public bool ChooseContentFile (string initialDirectory, out List<string> files)
-		{
-			Gtk.FileChooserDialog filechooser =
-				new Gtk.FileChooserDialog("Add Content Files",
-					this,
-					FileChooserAction.Open,
-					"Cancel", ResponseType.Cancel,
-					"Open", ResponseType.Accept);
-			filechooser.SelectMultiple = true;
+        public void AutoScroll(object sender, SizeAllocatedArgs e)
+        {
+            textview2.ScrollToIter(textview2.Buffer.EndIter, 0, false, 0, 0);
+        }
 
-			filechooser.AddFilter (AllFilesFilter);
-			filechooser.SetCurrentFolder (initialDirectory);
+        public void OutputAppend (string text)
+        {
+            if (text == null)
+                return;
 
-			bool result = (filechooser.Run() == (int)ResponseType.Accept) ? true : false;
+            Application.Invoke (delegate { 
+                try {
+                    lock(textview2.Buffer) {
+                        textview2.Buffer.Text += text + "\r\n";
+                        UpdateMenus();
+                        System.Threading.Thread.Sleep(1);
+                    }
+                }
+                catch {
+                }
+            });
+        }
 
-			files = new List<string>();
-			files.AddRange (filechooser.Filenames);
-			filechooser.Destroy ();
+        public void OutputClear ()
+        {
+            Application.Invoke (delegate { 
+                try {
+                    lock(textview2.Buffer) {
+                        textview2.Buffer.Text = "";
+                        UpdateMenus();
+                    }
+                }
+                catch {
+                }
+            });
+        }
 
-			return result;
-		}
+        public bool ChooseContentFile (string initialDirectory, out List<string> files)
+        {
+            var filechooser =
+                new FileChooserDialog("Add Content Files",
+                    this,
+                    FileChooserAction.Open,
+                    "Cancel", ResponseType.Cancel,
+                    "Open", ResponseType.Accept);
+            filechooser.SelectMultiple = true;
 
-		public void OnTemplateDefined(ContentItemTemplate item)
-		{
-		}
+            filechooser.AddFilter (AllFilesFilter);
+            filechooser.SetCurrentFolder (initialDirectory);
 
-		private string ReplaceCharacters(string fileName)
-		{
-			return fileName.Replace (" ", "\\ ").Replace ("(", "\\(").Replace (")", "\\)");
-		}
+            bool result = filechooser.Run() == (int)ResponseType.Accept;
 
-		public Process CreateProcess(string exe, string commands)
-		{
-			var _buildProcess = new Process();
+            files = new List<string>();
+            files.AddRange (filechooser.Filenames);
+            filechooser.Destroy ();
+
+            return result;
+        }
+
+        public bool ChooseContentFolder (string initialDirectory, out string folder)
+        {
+            var folderchooser =
+                new FileChooserDialog("Add Content Folder",
+                    this,
+                    FileChooserAction.SelectFolder,
+                    "Cancel", ResponseType.Cancel,
+                    "Open", ResponseType.Accept);
+
+            folderchooser.SetCurrentFolder (initialDirectory);
+            bool result = folderchooser.Run() == (int)ResponseType.Accept;
+
+            folder = folderchooser.Filename;
+            folderchooser.Destroy ();
+
+            return result;
+        }
+
+        public bool CopyOrLinkFile(string file, bool exists, out CopyAction action, out bool applyforall)
+        {
+            var afd = new AddFileDialog(file, exists);
+            afd.TransientFor = this;
+
+            if (afd.Run() == (int)ResponseType.Ok)
+            {
+                action = afd.responce;
+                applyforall = afd.applyforall;
+                return true;
+            }
+
+            action = CopyAction.Link;
+            applyforall = false;
+            return false;
+        }
+
+        public bool CopyOrLinkFolder(string folder, out CopyAction action)
+        {
+            var afd = new AddFolderDialog(folder);
+            afd.TransientFor = this;
+
+            if (afd.Run() == (int)ResponseType.Ok)
+            {
+                action = afd.responce;
+                return true;
+            }
+
+            action = CopyAction.Link;
+            return false;
+        }
+
+        public void OnTemplateDefined(ContentItemTemplate item)
+        {
+
+        }
+
+        public void ItemExistanceChanged(IProjectItem item)
+        {
+            projectview1.RefreshItem(projectview1.GetBaseIter(), item.OriginalPath, item.Exists);
+        }
+
+        public Process CreateProcess(string exe, string commands)
+        {
+            var _buildProcess = new Process();
 #if WINDOWS
-			_buildProcess.StartInfo.FileName = exe;
-			_buildProcess.StartInfo.Arguments = commands;
+            _buildProcess.StartInfo.FileName = exe;
+            _buildProcess.StartInfo.Arguments = commands;
 #endif
 #if MONOMAC || LINUX
-			_buildProcess.StartInfo.FileName = "mono";
-			_buildProcess.StartInfo.Arguments = string.Format("\"{0}\" {1}", exe, commands);
+            _buildProcess.StartInfo.FileName = "mono";
+            _buildProcess.StartInfo.Arguments = string.Format("\"{0}\" {1}", exe, commands);
 #endif
 
-			return _buildProcess;
-		}
+            return _buildProcess;
+        }
+#endregion
 
-		protected void OnNewActionActivated (object sender, EventArgs e)
-		{
-			_controller.NewProject();
-		}
+        protected void OnNewActionActivated (object sender, EventArgs e)
+        {
+            _controller.NewProject();
+        }
 
-		protected void OnOpenActionActivated (object sender, EventArgs e)
-		{
-			_controller.OpenProject();
-		}
+        protected void OnOpenActionActivated (object sender, EventArgs e)
+        {
+            _controller.OpenProject();
+        }
 
-		protected void OnCloseActionActivated (object sender, EventArgs e)
-		{
-			_controller.CloseProject();
-		}
+        protected void OnCloseActionActivated (object sender, EventArgs e)
+        {
+            _controller.CloseProject();
+        }
 
-		protected void OnImportActionActivated (object sender, EventArgs e)
-		{
-			_controller.ImportProject();
-		}
+        protected void OnImportActionActivated (object sender, EventArgs e)
+        {
+            _controller.ImportProject();
+        }
 
-		protected void OnSaveActionActivated (object sender, EventArgs e)
-		{
-			_controller.SaveProject(false);
-		}
+        protected void OnSaveActionActivated (object sender, EventArgs e)
+        {
+            _controller.SaveProject(false);
+            UpdateMenus();
+        }
 
-		protected void OnSaveAsActionActivated (object sender, EventArgs e)
-		{
-			_controller.SaveProject(true);
-		}
+        protected void OnSaveAsActionActivated (object sender, EventArgs e)
+        {
+            _controller.SaveProject(true);
+            UpdateMenus();
+        }
 
-		protected void OnExitActionActivated (object sender, EventArgs e)
-		{
-			if (_controller.Exit ())
-				Application.Quit ();
-		}
+        protected void OnExitActionActivated (object sender, EventArgs e)
+        {
+            if (_controller.Exit ())
+                Application.Quit ();
+        }
 
-		protected void OnUndoActionActivated (object sender, EventArgs e)
-		{
-			_controller.Undo ();
-		}
+        protected void OnUndoActionActivated (object sender, EventArgs e)
+        {
+            _controller.Undo ();
+        }
 
-		protected void OnRedoActionActivated (object sender, EventArgs e)
-		{
-			_controller.Redo ();
-		}
+        protected void OnRedoActionActivated (object sender, EventArgs e)
+        {
+            _controller.Redo ();
+        }
 
-		public void OnNewItemActionActivated (object sender, EventArgs e)
-		{
-			NewTemplateDialog dialog = new NewTemplateDialog(_controller.Templates.GetEnumerator ());
-			dialog.TransientFor = this;
+        public void OnNewItemActionActivated (object sender, EventArgs e)
+        {
+            expand = true;
+            var dialog = new NewTemplateDialog(_controller.Templates.GetEnumerator ());
+            dialog.TransientFor = this;
 
-			if (dialog.Run () == (int)ResponseType.Ok) {
+            if (dialog.Run () == (int)ResponseType.Ok) {
 
-				List<TreeIter> iters;
-				List<Gdk.Pixbuf> icons;
-				string[] paths = projectview1.GetSelectedTreePath (out iters, out icons);
+                List<TreeIter> iters;
+                List<string> ids;
+                string[] paths = projectview1.GetSelectedTreePath (out iters, out ids);
 
-				string location = "";
+                string location;
 
-				if (paths.Length == 1) {
-					if (icons [0] == projectview1.ICON_FOLDER)
-						location = paths [0];
-					else if (icons [0] == projectview1.ICON_OTHER)
-						location = System.IO.Path.GetDirectoryName (paths [0]);
-					else
-						location = _controller.GetFullPath ("");
-				}
-				else
-					location = _controller.GetFullPath ("");
+                if (paths.Length == 1) {
+                    if (ids [0] == projectview1.ID_FOLDER)
+                        location = paths [0];
+                    else if (ids[0] == projectview1.ID_BASE)
+                        location = _controller.GetFullPath ("");
+                    else
+                        location = System.IO.Path.GetDirectoryName (paths [0]);
+                }
+                else
+                    location = _controller.GetFullPath ("");
 
-				_controller.NewItem(dialog.name, location, dialog.templateFile);
-			}
-		}
+                _controller.NewItem(dialog.name, location, dialog.templateFile);
+                UpdateMenus();
+            }
+            expand = false;
+        }
 
-		public void OnAddItemActionActivated (object sender, EventArgs e)
-		{
-			List<TreeIter> iters;
-			List<Gdk.Pixbuf> icons;
-			string[] paths = projectview1.GetSelectedTreePath (out iters, out icons);
+        public void OnAddItemActionActivated (object sender, EventArgs e)
+        {
+            expand = true;
+            List<TreeIter> iters;
+            List<string> ids;
+            string[] paths = projectview1.GetSelectedTreePath (out iters, out ids);
 
-			if (paths.Length == 1) {
-				if (icons [0] == projectview1.ICON_FOLDER)
-					_controller.Include (paths [0]);
-				else if (icons [0] == projectview1.ICON_OTHER)
-					_controller.Include (System.IO.Path.GetDirectoryName (paths [0]));
-				else
-					_controller.Include (_controller.GetFullPath (""));
-			}
-			else
-				_controller.Include (_controller.GetFullPath (""));
-		}
+            if (paths.Length == 1) {
+                if (ids [0] == projectview1.ID_FOLDER)
+                    _controller.Include (paths [0]);
+                else if (ids[0] == projectview1.ID_BASE)
+                    _controller.Include (_controller.GetFullPath (""));
+                else
+                    _controller.Include (System.IO.Path.GetDirectoryName (paths [0]));
+            }
+            else
+                _controller.Include (_controller.GetFullPath (""));
+            UpdateMenus();
+            expand = false;
+        }
 
-		public void OnDeleteActionActivated (object sender, EventArgs e)
-		{
-			projectview1.Remove ();
-		}
+        public void OnNewFolderActionActivated(object sender, EventArgs e)
+        {
+            var ted = new TextEditorDialog("New Folder", "Folder Name:", "", true);
+            ted.TransientFor = this;
+            if (ted.Run() != (int)ResponseType.Ok)
+                return;
+            var foldername = ted.text;
 
-		protected void OnBuildAction1Activated (object sender, EventArgs e)
-		{
-			_controller.Build(false);
-		}
+            expand = true;
+            List<TreeIter> iters;
+            List<string> ids;
+            string[] paths = projectview1.GetSelectedTreePath (out iters, out ids);
 
-		protected void OnRebuildActionActivated (object sender, EventArgs e)
-		{
-			_controller.Build(true);
-		}
+            if (paths.Length == 1) {
+                if (ids [0] == projectview1.ID_FOLDER)
+                    _controller.NewFolder (foldername, paths [0]);
+                else if (ids[0] == projectview1.ID_BASE)
+                    _controller.NewFolder (foldername, _controller.GetFullPath (""));
+                else
+                    _controller.NewFolder (foldername, System.IO.Path.GetDirectoryName (paths [0]));
+            }
+            else
+                _controller.NewFolder (foldername, _controller.GetFullPath (""));
 
-		protected void OnCleanActionActivated (object sender, EventArgs e)
-		{
-			_controller.Clean();
-		}
+            expand = false;
+        }
 
-		protected void OnViewHelpActionActivated (object sender, EventArgs e)
-		{
-			Process.Start("http://www.monogame.net/documentation/?page=Pipeline");
-		}
+        public void OnAddFolderActionActivated(object sender, EventArgs e)
+        {
+            expand = true;
+            List<TreeIter> iters;
+            List<string> ids;
+            string[] paths = projectview1.GetSelectedTreePath (out iters, out ids);
 
-		protected void OnAboutActionActivated (object sender, EventArgs e)
-		{
-			Process.Start("http://www.monogame.net/about/");
-			AboutDialog adialog = new AboutDialog ();
-			adialog.TransientFor = this;
-			adialog.Run ();
-		}
+            if (paths.Length == 1) {
+                if (ids [0] == projectview1.ID_FOLDER)
+                    _controller.IncludeFolder (paths [0]);
+                else if (ids[0] == projectview1.ID_BASE)
+                    _controller.IncludeFolder (_controller.GetFullPath (""));
+                else
+                    _controller.IncludeFolder (System.IO.Path.GetDirectoryName (paths [0]));
+            }
+            else
+                _controller.IncludeFolder (_controller.GetFullPath (""));
+            UpdateMenus();
+            expand = false;
+        }
 
-		public void UpdateMenus()
-		{
-			var notBuilding = !_controller.ProjectBuilding;
-			var projectOpen = _controller.ProjectOpen;
-			var projectOpenAndNotBuilding = projectOpen && notBuilding;
+        public void OnDeleteActionActivated (object sender, EventArgs e)
+        {
+            projectview1.Remove ();
+            UpdateMenus();
+        }
 
-			// Update the state of all menu items.
+        protected void OnBuildAction1Activated (object sender, EventArgs e)
+        {
+            _controller.Build(false);
+        }
 
-			NewAction.Sensitive = notBuilding;
-			OpenAction.Sensitive = notBuilding;
-			ImportAction.Sensitive = notBuilding;
+        protected void OnRebuildActionActivated (object sender, EventArgs e)
+        {
+            _controller.Build(true);
+        }
 
-			SaveAction.Sensitive = projectOpenAndNotBuilding && _controller.ProjectDirty;
-			SaveAsAction.Sensitive = projectOpenAndNotBuilding;
-			CloseAction.Sensitive = projectOpenAndNotBuilding;
+        protected void OnCleanActionActivated (object sender, EventArgs e)
+        {
+            _controller.Clean();
+        }
 
-			ExitAction.Sensitive = notBuilding;
+        protected void OnViewHelpActionActivated (object sender, EventArgs e)
+        {
+            Process.Start("http://www.monogame.net/documentation/?page=Pipeline");
+        }
 
-			NewItemAction.Sensitive = projectOpen;
-			AddItemAction.Sensitive = projectOpen;
-			DeleteAction.Sensitive = projectOpen;
+        protected void OnAboutActionActivated (object sender, EventArgs e)
+        {
+            Process.Start("http://www.monogame.net/about/");
+            var adialog = new AboutDialog ();
+            adialog.TransientFor = this;
+            adialog.Run ();
+        }
 
-			BuildAction.Sensitive = projectOpenAndNotBuilding;
+        public void UpdateMenus()
+        {
+            List<TreeIter> iters;
+            List<string> ids;
+            string[] paths = projectview1.GetSelectedTreePath (out iters, out ids);
 
-			treerebuild.Sensitive = RebuildAction.Sensitive = projectOpenAndNotBuilding;
-			RebuildAction.Sensitive = treerebuild.Sensitive;
+            var notBuilding = !_controller.ProjectBuilding;
+            var projectOpen = _controller.ProjectOpen;
+            var projectOpenAndNotBuilding = projectOpen && notBuilding;
+            var somethingSelected = paths.Length > 0;
 
-			CleanAction.Sensitive = projectOpenAndNotBuilding;
-			CancelBuildAction.Sensitive = !notBuilding;
-			CancelBuildAction.Visible = !notBuilding;
+            // Update the state of all menu items.
 
-			UpdateUndoRedo(_controller.CanUndo, _controller.CanRedo);
-			UpdateRecentProjectList();
-		}
+            NewAction.Sensitive = notBuilding;
+            OpenAction.Sensitive = notBuilding;
+            ImportAction.Sensitive = notBuilding;
 
-		public void UpdateRecentProjectList()
-		{
-			History.Default.Load ();
-			recentMenu.Submenu = null;
-			Menu m = new Menu ();
+            SaveAction.Sensitive = projectOpenAndNotBuilding && _controller.ProjectDirty;
+            SaveAsAction.Sensitive = projectOpenAndNotBuilding;
+            CloseAction.Sensitive = projectOpenAndNotBuilding;
 
-			int nop = 0;
+            ExitAction.Sensitive = notBuilding;
 
-			foreach (var project in History.Default.ProjectHistory)
-			{
-				nop++;
-				var recentItem = new MenuItem(project);
+            AddAction.Sensitive = projectOpen;
 
-				// We need a local to make the delegate work correctly.
-				var localProject = project;
-				recentItem.Activated += (sender, args) => _controller.OpenProject(localProject);
+            DeleteAction.Sensitive = projectOpen && somethingSelected;
 
-				m.Insert (recentItem, 0);
-			}
-				
-			if (nop > 0) {
-				m.Add (new SeparatorMenuItem ());
-				MenuItem item = new MenuItem ("Clear");
-				item.Activated += delegate {
-					History.Default.Clear ();
-					UpdateRecentProjectList ();
-				};
-				m.Add (item);
+            BuildAction.Sensitive = projectOpen;
+            BuildAction1.Sensitive = projectOpenAndNotBuilding;
 
-				recentMenu.Submenu = m;
-				m.ShowAll ();
-			}
-			menubar1.ShowAll ();
-		}
+            treerebuild.Sensitive = RebuildAction.Sensitive = projectOpenAndNotBuilding;
+            RebuildAction.Sensitive = treerebuild.Sensitive;
 
-		private void UpdateUndoRedo(bool canUndo, bool canRedo)
-		{
-			UndoAction.Sensitive = canUndo;
-			RedoAction.Sensitive = canRedo;
-		}
+            CleanAction.Sensitive = projectOpenAndNotBuilding;
+            CancelBuildAction.Sensitive = !notBuilding;
+            CancelBuildAction.Visible = !notBuilding;
 
-		protected void OnFileActionActivated (object sender, EventArgs e)
-		{
-			UpdateMenus ();
-		}
+            UpdateUndoRedo(_controller.CanUndo, _controller.CanRedo);
+            UpdateRecentProjectList();
+        }
 
-		protected void OnBuildActionActivated (object sender, EventArgs e)
-		{
-			UpdateMenus ();
-		}
-		#endregion
-	}
+        public void UpdateRecentProjectList()
+        {
+            History.Default.Load ();
+            recentMenu.Submenu = null;
+            var m = new Menu ();
+
+            int nop = 0;
+
+            foreach (var project in History.Default.ProjectHistory)
+            {
+                nop++;
+                var recentItem = new MenuItem(project);
+
+                // We need a local to make the delegate work correctly.
+                var localProject = project;
+                recentItem.Activated += (sender, args) => _controller.OpenProject(localProject);
+
+                m.Insert (recentItem, 0);
+            }
+                
+            if (nop > 0) {
+                m.Add (new SeparatorMenuItem ());
+                var item = new MenuItem ("Clear");
+                item.Activated += delegate {
+                    History.Default.Clear ();
+                    UpdateRecentProjectList ();
+                };
+                m.Add (item);
+
+                recentMenu.Submenu = m;
+                m.ShowAll ();
+            }
+
+            recentMenu.Sensitive = nop > 0;
+            menubar1.ShowAll ();
+        }
+
+        void UpdateUndoRedo(bool canUndo, bool canRedo)
+        {
+            UndoAction.Sensitive = canUndo;
+            RedoAction.Sensitive = canRedo;
+        }
+    }
 }
 

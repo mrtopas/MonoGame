@@ -14,16 +14,32 @@ namespace Microsoft.Xna.Framework.Media
 {
     public partial class MediaLibrary
     {
+        private const string CacheFile = "MediaLibrary.cache";
+
         private static StorageFolder musicFolder;
         private static AlbumCollection albumCollection;
         private static SongCollection songCollection;
 
         private void PlatformLoad(Action<int> progressCallback)
         {
+#if !WINDOWS_UAP
             Task.Run(async () =>
             {
                 if (musicFolder == null)
-                    musicFolder = KnownFolders.MusicLibrary;
+                {
+                    try
+                    {
+                        musicFolder = KnownFolders.MusicLibrary;
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.WriteLine("Failed to access Music Library: " + e.Message);
+                        albumCollection = new AlbumCollection(new List<Album>());
+                        songCollection = new SongCollection(new List<Song>());
+                        return;
+                    }
+                }
+                    
             
                 var files = new List<StorageFile>();
                 await this.GetAllFiles(musicFolder, files);
@@ -35,10 +51,10 @@ namespace Microsoft.Xna.Framework.Media
                 var albums = new Dictionary<string, Album>();
                 var genres = new Dictionary<string, Genre>();
 
-                var cacheFile = await ApplicationData.Current.TemporaryFolder.CreateFileAsync("MediaLibrary.cache", CreationCollisionOption.OpenIfExists);
                 var cache = new Dictionary<string, MusicProperties>();
 
                 // Read cache
+                var cacheFile = await ApplicationData.Current.TemporaryFolder.CreateFileAsync(CacheFile, CreationCollisionOption.OpenIfExists);
                 using (var stream = new BinaryReader(await cacheFile.OpenStreamForReadAsync()))
                     try
                     {
@@ -51,6 +67,7 @@ namespace Microsoft.Xna.Framework.Media
                     catch { }
 
                 // Write cache
+                cacheFile = await ApplicationData.Current.TemporaryFolder.CreateFileAsync(CacheFile, CreationCollisionOption.ReplaceExisting);
                 using (var stream = new BinaryWriter(await cacheFile.OpenStreamForWriteAsync()))
                 {
                     int prevProgress = 0;
@@ -123,16 +140,23 @@ namespace Microsoft.Xna.Framework.Media
                 albumCollection = new AlbumCollection(albumList);
                 songCollection = new SongCollection(songList);
             }).Wait();
+#endif
         }
 
         private async Task GetAllFiles(StorageFolder storageFolder, List<StorageFile> musicFiles)
         {
-            foreach (var file in await storageFolder.GetFilesAsync())
-                if (file.ContentType.StartsWith("audio") && !file.ContentType.EndsWith("url"))
-                    musicFiles.Add(file);
-
-            foreach (var folder in await storageFolder.GetFoldersAsync())
-                await this.GetAllFiles(folder, musicFiles);
+            foreach (var item in await storageFolder.GetItemsAsync())
+                if (item is StorageFile)
+                {
+                    var file = item as StorageFile;
+                    if (file.ContentType.StartsWith("audio") && !file.ContentType.EndsWith("url"))
+                        musicFiles.Add(file);
+                }
+                else
+                {
+                    var folder = item as StorageFolder;
+                    await this.GetAllFiles(folder, musicFiles);
+                }
         }
 
         private AlbumCollection PlatformGetAlbums()
